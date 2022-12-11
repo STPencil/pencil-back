@@ -1,12 +1,38 @@
 //index.js
-const express = require('express') //③번 단계에서 다운받았던 express 모듈을 가져온다.
-const app = express() //가져온 express 모듈의 function을 이용해서 새로운 express 앱을 만든다. 🔥
-const port = 8000 //포트는 4000번 해도되고, 5000번 해도 된다. -> 이번엔 5000번 포트를 백 서버로 두겠다.
+const express = require('express')
+const mysql = require('mysql');
+const db = require('./config/database')
+const bodyParser = require('body-parser')
+const routers = require('./routes')
+const bcrypt = require('bcrypt')
+const saltRounds = 10
+const app = express() 
+const port = 8000 
+var cors = require('cors')
 
-app.get('/', (req, res) => { //express 앱(app)을 넣고, root directory에 오면, 
-  res.send('Hello World!') //"Hello World!" 를 출력되게 해준다.
+app.use(cors())
+
+app.use(express.json())
+app.use(bodyParser.urlencoded({extended: true}))
+
+
+app.get('/', (req, res) => { 
+  res.send('Hello World!') 
+
 })
 
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`)
-}) //포트 5000번에서 이 앱을 실행한다
+}) 
+
+app.use('/api', routers)
+// db 테스트
+app.get('/users', (req, res) => {
+  connection.query('select * from user', (error, rows) => {
+    if (error) throw error;
+    console.log('User info is: ', rows);
+    res.send(rows);
+  });
+});
+
+

@@ -1,128 +1,33 @@
-const User = require('../../../models/user')
+const db = require('../../../config/database')
 const jwt = require('jsonwebtoken')
+const bcrypt = require('bcrypt')
+const saltRounds = 10
 
 exports.register = (req, res) => {
-  const {username, password} = req.body
-  let newUser = null
-
-  // 존재하지않으면 새로운 유저 생성
-  const create = (user) => {
-    if(user){
-      throw new Error('username exists')
-    } else{
-      return User.create(username, password)
-    }
-  }
-
-  const respond = () => {
-    res.json({
-      message: 'registered successfully'
+  const param = [req.body.userId, req.body.password]
+  
+  bcrypt.hash(param[1], saltRounds, (error, hash) => {
+    param[1] = hash
+    db.query('insert into user(`user_id`, `password`) values (?,?)', param, (err, now) => {
+      if(err) console.log(err)
     })
-  }
-
-  const onError = (error) => {
-    res.status(409).json({
-      message: error.message
-    })
-  }
-
-  User.findOneByUsername(username)
-  .then(create)
-  .then(respond)
-  .catch(onError)
-}
-
-exports.login = (req,res) => {
-  const {username, password} = req.body
-  const secret = req.app.get('jwt-secret')
-
-  // user 정보 체크 & jwt 생성
-  const check = (user) => {
-    if(!user){
-      throw new Error('login failed')
-    } else{
-      if(user.verify(password)){
-        const p = new Promise((resolve, reject) => {
-          jwt.sign(
-            {
-              _id: user._id,
-              username: user.username
-            },
-            secret,
-            {
-              expiresIn: '7d',
-              issuer: 'velopert.com',
-              subject: 'userInfo'
-            }, (err, token) => {
-              if(err) reject(err)
-              resolve(token)
-            })
-        })
-        return p
-      } else{
-        throw new Error('login failed')
-      }
-    }
-  }
-
-  const respond = (token) => {
-    res.json({
-      message: 'logged in successfully',
-      token
-    })
-  }
-
-  const onError = (error) => {
-    res.status(403).json({
-      message: error.message
-    })
-  }
-
-  User.findOneByUsername(username)
-  .then(check)
-  .then(respond)
-  .catch(onError)
-}
-
-exports.check = (req, res) => {
-  res.json({
-      success: true,
-      info: req.decoded
   })
+
+  res.end()
 }
-
-exports.check = (req, res) => {
-  const token = req.headers['x-access-token'] || req.query.token
-
-  if(!token){
-    return res.status(403).json({
-      success: false,
-      message: 'not logged in'
-    })
-  }
-
-  const p = new Promise(
-    (resolve, reject) => {
-      jwt.verify(token, req.app.get('jwt-secret'), (err,decoded) => {
-        if(err) reject(err)
-        resolve(decoded)
+exports.login = (req, res) => {
+  const userId = req.body.userId;
+  const id = db.query('select u.id from user u where user_id = ?', userId, function(err, result, field){
+    if(err) console.log(err)
+    if(result.length == 0){
+      res.status(401).json({status: false, result: 'login failed'})
+    }else{
+      const token = jwt.sign({
+        userId: result[0].id
+      }, "StPeNcIlJwTsEcReTkEy", {
+        expiresIn: '10d'
       })
+      res.status(200).json({status: true, token: token})
     }
-  )
-
-  const respond = (token) => {
-    res.json({
-      success: true,
-      info: token
-    })
-  }
-
-  const onError = (error) => {
-    res.status(403).json({
-      success: false,
-      message: error.message
-    })
-  }
-
-  p.then(respond).catch(onError)
+  })
 }
